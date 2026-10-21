@@ -1,0 +1,62 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: cd frontend && npm install && npm run build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+  build-binaries:
+    needs: build-frontend
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: kweek-wireguard-ui-linux-amd64
+          - os: macos-latest
+            artifact_name: kweek-wireguard-ui-macos-amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: frontend-dist
+          path: backend/frontend_dist
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pyinstaller
+          pyinstaller --onefile --name ${{ matrix.artifact_name }} --add-data "frontend_dist:frontend_dist" main.py
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: backend/dist/${{ matrix.artifact_name }}
+
+  release:
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            kweek-wireguard-ui-linux-amd64/kweek-wireguard-ui-linux-amd64
+            kweek-wireguard-ui-macos-amd64/kweek-wireguard-ui-macos-amd64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  kweek-backend:
+    build: ./backend
+    container_name: kweek-backend
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    volumes:
+      - /etc/wireguard:/etc/wireguard
+      - ./data:/app/data
+    environment:
+      - WG_INTERFACE=${WG_INTERFACE}
+      - SERVER_ENDPOINT=${SERVER_ENDPOINT}
+    restart: unless-stopped
+
+  kweek-frontend:
+    build: ./frontend
+    container_name: kweek-frontend
+    ports:
+      - "80:80"
+    restart: unless-stopped

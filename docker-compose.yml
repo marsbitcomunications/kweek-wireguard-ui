@@ -1,66 +1,24 @@
-name: Build and Release
+version: '3.8'
 
-on:
-  push:
-    tags:
-      - 'v*'
-  workflow_dispatch: # <--- THIS ADDS THE MANUAL RUN BUTTON
+services:
+  kweek-backend:
+    build: ./backend
+    container_name: kweek-backend
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    volumes:
+      - /etc/wireguard:/etc/wireguard
+      - ./data:/app/data
+    environment:
+      - WG_INTERFACE=${WG_INTERFACE}
+      - SERVER_ENDPOINT=${SERVER_ENDPOINT}
+    restart: unless-stopped
 
-jobs:
-  build-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-      - run: cd frontend && npm install && npm run build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: frontend/dist
-
-  build-binaries:
-    needs: build-frontend
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            artifact_name: kweek-wireguard-ui-linux-amd64
-          - os: macos-latest
-            artifact_name: kweek-wireguard-ui-macos-amd64
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: backend/frontend_dist
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: |
-          cd backend
-          pip install -r requirements.txt
-          pip install pyinstaller
-          pyinstaller --onefile --name ${{ matrix.artifact_name }} --add-data "frontend_dist:frontend_dist" main.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: backend/dist/${{ matrix.artifact_name }}
-
-  release:
-    needs: build-binaries
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: kweek-wireguard-ui-*
-          merge-multiple: true
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            kweek-wireguard-ui-linux-amd64
-            kweek-wireguard-ui-macos-amd64
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  kweek-frontend:
+    build: ./frontend
+    container_name: kweek-frontend
+    ports:
+      - "80:80"
+    restart: unless-stopped

@@ -52,6 +52,13 @@ jobs:
   release:
     needs: build-binaries
     runs-on: ubuntu-latest
+      release:
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') # <--- ADD THIS LINE
+    steps:
+      - uses: actions/download-artifact@v4
+      # ... rest of the file stays the same
     steps:
       - uses: actions/download-artifact@v4
         with:

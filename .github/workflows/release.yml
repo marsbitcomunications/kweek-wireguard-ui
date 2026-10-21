@@ -7,6 +7,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-frontend:
@@ -26,7 +27,6 @@ jobs:
           name: frontend-dist
           path: frontend/dist
 
-  # NEW: Dedicated Linux build using Ubuntu 20.04 for maximum compatibility
   build-linux:
     needs: build-frontend
     runs-on: ubuntu-latest
@@ -35,7 +35,7 @@ jobs:
       - name: Install Dependencies
         run: |
           apt-get update
-          apt-get install -y python3 python3-pip git curl
+          apt-get install -y python3 python3-pip git curl binutils zlib1g-dev
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
@@ -52,7 +52,6 @@ jobs:
           name: kweek-wireguard-ui-linux-amd64
           path: backend/dist/kweek-wireguard-ui-linux-amd64
 
-  # Dedicated Mac build
   build-macos:
     needs: build-frontend
     runs-on: macos-latest
@@ -79,6 +78,7 @@ jobs:
   release:
     needs: [build-linux, build-macos]
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/download-artifact@v4
         with:

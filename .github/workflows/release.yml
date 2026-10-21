@@ -26,16 +26,36 @@ jobs:
           name: frontend-dist
           path: frontend/dist
 
-  build-binaries:
+  # NEW: Dedicated Linux build using Ubuntu 20.04 for maximum compatibility
+  build-linux:
     needs: build-frontend
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            artifact_name: kweek-wireguard-ui-linux-amd64
-          - os: macos-latest
-            artifact_name: kweek-wireguard-ui-macos-amd64
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    container: ubuntu:20.04
+    steps:
+      - name: Install Dependencies
+        run: |
+          apt-get update
+          apt-get install -y python3 python3-pip git curl
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: backend/frontend_dist
+      - name: Build Linux Binary
+        run: |
+          cd backend
+          pip3 install -r requirements.txt
+          pip3 install pyinstaller
+          pyinstaller --onefile --name kweek-wireguard-ui-linux-amd64 --add-data "frontend_dist:frontend_dist" main.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kweek-wireguard-ui-linux-amd64
+          path: backend/dist/kweek-wireguard-ui-linux-amd64
+
+  # Dedicated Mac build
+  build-macos:
+    needs: build-frontend
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -45,19 +65,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Build Python Binary
+      - name: Build MacOS Binary
         run: |
           cd backend
           pip install -r requirements.txt
           pip install pyinstaller
-          pyinstaller --onefile --name ${{ matrix.artifact_name }} --add-data "frontend_dist:frontend_dist" main.py
+          pyinstaller --onefile --name kweek-wireguard-ui-macos-amd64 --add-data "frontend_dist:frontend_dist" main.py
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
-          path: backend/dist/${{ matrix.artifact_name }}
+          name: kweek-wireguard-ui-macos-amd64
+          path: backend/dist/kweek-wireguard-ui-macos-amd64
 
   release:
-    needs: build-binaries
+    needs: [build-linux, build-macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
